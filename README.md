@@ -4,7 +4,8 @@ An [Agent Skill](https://agentskills.io) that teaches AI coding agents how to in
 
 ## What It Does
 
-- Guides setup of Privy cross-app authentication with VeeFriends as the wallet provider
+- Guides adding VeeFriends wallet to an existing PrivyAuth setup (default path)
+- Supports new PrivyAuth setup with Email + Google plus VeeFriends wallet connect flow
 - Provides production-tested code for login, message signing, typed data signing (EIP-712), and transactions
 - Documents critical gotchas: SSG crashes, camelCase SDK quirk, single-popup limit, no-account-creation constraint
 - Includes the official VeeFriends wallet icon (`assets/vf-logo.svg`) — required branding for all integrations
@@ -33,11 +34,11 @@ Copy `SKILL.md` into your agent's skills directory. See [Agent Skills spec](http
 
 1. Create a [Privy Dashboard](https://dashboard.privy.io) account
 2. Create a new app to get your Requester App ID
-3. Get the VeeFriends Provider App ID (contact VeeFriends team or check Privy Dashboard > Ecosystem > Integrations)
+3. Use the VeeFriends Provider App ID: `cm5158iom02kdwmj4wj527lc4`
 4. Set environment variables:
    ```env
    NEXT_PUBLIC_PRIVY_APP_ID=your_requester_app_id
-   NEXT_PUBLIC_VF_PROVIDER_APP_ID=veefriends_provider_app_id
+   NEXT_PUBLIC_VF_PROVIDER_APP_ID=cm5158iom02kdwmj4wj527lc4
    ```
 
 ## Usage
@@ -93,6 +94,10 @@ A complete working example is available:
 - TypeScript
 - `@privy-io/react-auth` v3.13.x
 
+## Architecture Docs
+
+For a full repository map and agent navigation guide, see [`docs/CODEBASE_MAP.md`](docs/CODEBASE_MAP.md).
+
 ## Limitations
 
 - **Users must have an existing VeeFriends account** — the SDK cannot create new accounts
@@ -103,7 +108,10 @@ A complete working example is available:
 ## File Structure
 
 ```
-vf-global-wallet/
+vf-global-wallet-skill/
+├── docs/
+│   └── CODEBASE_MAP.md # Architecture map and navigation guide
+├── CLAUDE.md         # Agent-facing project reference
 ├── SKILL.md          # Integration guide (loaded by AI agents)
 ├── assets/
 │   └── vf-logo.svg   # Official VeeFriends wallet icon (required branding)
