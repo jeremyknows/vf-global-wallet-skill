@@ -22,6 +22,34 @@ Build apps that authenticate users via VeeFriends Global Wallet and interact wit
 
 **Reference implementation:** [vf-global-wallet](https://github.com/jeremyknows/vf-global-wallet) — a minimal working example deployed at https://vf-wallet-test.vercel.app
 
+## What You Get Back from Cross-App Login
+
+Cross-app authentication gives your app **a wallet address — not a full user profile.** This is by design. VeeFriends owns the user relationship; your app just gets proof that someone controls a specific Ethereum wallet.
+
+**Data your app receives:**
+- Wallet address (`0x...`) via the cross-app linked account
+- Account type (`cross_app`)
+
+**Data your app does NOT receive:**
+- Email address
+- Display name
+- Profile picture
+- Any other personal information from the user's VeeFriends account
+
+### Implications for Existing Auth Systems
+
+If your app already has authentication (Google OAuth, email/password, etc.), you need to decide how VeeFriends wallet login fits in:
+
+| Approach | How it works | Best for |
+|----------|-------------|----------|
+| **Wallet as add-on** | Users sign in with your existing auth, then connect their VeeFriends wallet as a secondary action (like linking a Discord account). Wallet address becomes a profile attribute. | Apps with existing users and auth. Keep your current login flow, add wallet features on top. |
+| **Privy for all auth** | Move all authentication to Privy (it supports Google, email, and cross-app). Privy links accounts automatically when the same email appears across methods. | New apps or apps ready to migrate auth. Cleanest unified experience. |
+| **Wallet as primary login** | VeeFriends wallet is the only sign-in method. No email auth. | Apps built exclusively for VeeFriends holders. |
+
+**If you already have auth, "wallet as add-on" is the simplest path.** Keep your existing login flow and add wallet connection as a feature. No auth migration needed.
+
+**If you use Privy for all auth,** Privy can link accounts when the same user signs in via Google on your app and also connects their VeeFriends wallet — but only because Privy sees both methods on *your* app. The email is never shared from VeeFriends' side.
+
 ## Prerequisites
 
 1. **Privy Dashboard account** — Create at https://dashboard.privy.io
