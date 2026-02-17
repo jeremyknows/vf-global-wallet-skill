@@ -7,6 +7,7 @@ An [Agent Skill](https://agentskills.io) that teaches AI coding agents how to in
 - Guides setup of Privy cross-app authentication with VeeFriends as the wallet provider
 - Provides production-tested code for login, message signing, typed data signing (EIP-712), and transactions
 - Documents critical gotchas: SSG crashes, camelCase SDK quirk, single-popup limit, no-account-creation constraint
+- Includes the official VeeFriends wallet icon (`assets/vf-logo.svg`) — required branding for all integrations
 - Includes security headers (CSP) with all required Privy domains
 - Covers deployment to Vercel with environment variable configuration
 
@@ -62,6 +63,7 @@ Just describe what you need:
 
 | Section | Description |
 |---------|-------------|
+| **Branding** | **Official VeeFriends logo — required for all integrations** |
 | Prerequisites | Privy Dashboard setup, app ID creation |
 | Environment Variables | Config validation, fail-fast pattern |
 | PrivyProvider Setup | Disable embedded wallets, theme config |
@@ -103,6 +105,8 @@ A complete working example is available:
 ```
 vf-global-wallet/
 ├── SKILL.md          # Integration guide (loaded by AI agents)
+├── assets/
+│   └── vf-logo.svg   # Official VeeFriends wallet icon (required branding)
 ├── LICENSE.txt       # MIT license
 ├── README.md         # This file (GitHub-facing documentation)
 └── .gitignore        # OS artifacts

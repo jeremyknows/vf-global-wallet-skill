@@ -36,6 +36,28 @@ In your Privy Dashboard app settings:
 - Add VeeFriends as a cross-app provider using their Provider App ID
 - No server-side API keys needed — both app IDs are public client-side identifiers
 
+## Branding: VeeFriends Wallet Icon
+
+**Required.** When building a VeeFriends wallet login experience, you **must** use the official VeeFriends logo for the wallet icon. The logo is included in this skill at `assets/vf-logo.svg`.
+
+Copy it into your project's public directory:
+
+```bash
+cp ~/.claude/skills/vf-global-wallet/assets/vf-logo.svg public/vf-logo.svg
+```
+
+Then use it wherever you display the VeeFriends wallet button or branding:
+
+```tsx
+import Image from 'next/image';
+
+<Image src="/vf-logo.svg" alt="VeeFriends" width={80} height={80} priority />
+```
+
+**Do not** substitute a generic wallet icon, a placeholder, or an AI-generated logo. The official VeeFriends cat logo in the white circle is the required brand mark for all VeeFriends wallet integrations.
+
+The SVG is 800x800 with a white circle background — it renders well on both light and dark backgrounds at any size.
+
 ## Step 1: Install Dependencies
 
 ```bash
@@ -491,6 +513,7 @@ Use in layout: `<ErrorBoundary><Providers>{children}</Providers></ErrorBoundary>
 
 | What | How |
 |------|-----|
+| Wallet icon | Copy `assets/vf-logo.svg` to `public/` — **required branding** |
 | Initialize | `<PrivyProvider appId={PRIVY_APP_ID} config={...}>` |
 | Login | `loginWithCrossAppAccount({ appId: VF_PROVIDER_APP_ID })` |
 | Check ready | `const { ready, authenticated } = usePrivy()` |
