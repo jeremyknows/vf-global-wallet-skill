@@ -121,20 +121,27 @@ Both are public client-side IDs (not secrets). The `NEXT_PUBLIC_` prefix is requ
 
 For Vercel: Set both in Dashboard > Settings > Environment Variables.
 
+If you set env vars via CLI, avoid trailing newline characters. Use `printf %s` (not `echo` or `printf '...\n'`):
+
+```bash
+printf %s 'your_requester_privy_app_id' | vercel env add NEXT_PUBLIC_PRIVY_APP_ID production
+printf %s 'cm5158iom02kdwmj4wj527lc4' | vercel env add NEXT_PUBLIC_VF_PROVIDER_APP_ID production
+```
+
 ### Config Validation
 
 Create `src/lib/config.ts` — fail fast if env vars are missing:
 
 ```typescript
-if (!process.env.NEXT_PUBLIC_PRIVY_APP_ID) {
-  throw new Error('Missing NEXT_PUBLIC_PRIVY_APP_ID — check .env.local');
-}
-if (!process.env.NEXT_PUBLIC_VF_PROVIDER_APP_ID) {
-  throw new Error('Missing NEXT_PUBLIC_VF_PROVIDER_APP_ID — check .env.local');
-}
+export const PRIVY_APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID?.trim();
+export const VF_PROVIDER_APP_ID = process.env.NEXT_PUBLIC_VF_PROVIDER_APP_ID?.trim();
 
-export const PRIVY_APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
-export const VF_PROVIDER_APP_ID = process.env.NEXT_PUBLIC_VF_PROVIDER_APP_ID;
+if (!PRIVY_APP_ID) {
+  throw new Error('Missing or invalid NEXT_PUBLIC_PRIVY_APP_ID — check .env.local');
+}
+if (!VF_PROVIDER_APP_ID) {
+  throw new Error('Missing or invalid NEXT_PUBLIC_VF_PROVIDER_APP_ID — check .env.local');
+}
 
 // Chains the VeeFriends wallet supports
 export const SUPPORTED_CHAINS = [
@@ -516,6 +523,16 @@ useEffect(() => {
   }
 }, []);
 ```
+
+### 8. "Invalid Privy app ID" or endless "Initializing..."
+Hidden whitespace in env vars (especially trailing newlines from CLI input) can break Privy initialization. This often appears as:
+- Console error: `Cannot initialize the Privy provider with an invalid Privy app ID`
+- UI state stuck at `Initializing...`
+
+Check and sanitize:
+- Ensure env values have no trailing spaces/newlines
+- Prefer `process.env.NEXT_PUBLIC_PRIVY_APP_ID?.trim()` in config
+- When using Vercel CLI, use `printf %s 'value' | vercel env add ...` instead of newline-terminated input
 
 ## Error Boundary (Recommended)
 

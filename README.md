@@ -7,7 +7,7 @@ An [Agent Skill](https://agentskills.io) that teaches AI coding agents how to in
 - Guides adding VeeFriends wallet to an existing PrivyAuth setup (default path)
 - Supports new PrivyAuth setup with Email + Google plus VeeFriends wallet connect flow
 - Provides production-tested code for login, message signing, typed data signing (EIP-712), and transactions
-- Documents critical gotchas: SSG crashes, camelCase SDK quirk, single-popup limit, no-account-creation constraint
+- Documents critical gotchas: SSG crashes, camelCase SDK quirk, single-popup limit, no-account-creation constraint, and env var newline/whitespace pitfalls
 - Includes the official VeeFriends wallet icon (`assets/vf-logo.svg`) — required branding for all integrations
 - Includes security headers (CSP) with all required Privy domains
 - Covers deployment to Vercel with environment variable configuration
@@ -77,7 +77,7 @@ Just describe what you need:
 | Auth Guard | Route protection, redirect pattern |
 | Security Headers | CSP with all Privy domains |
 | Account Funding | Gas sponsorship for production apps |
-| Common Gotchas | 7 documented pitfalls with solutions |
+| Common Gotchas | 8 documented pitfalls with solutions |
 | Error Boundary | Crash recovery component |
 
 ## Reference Implementation
