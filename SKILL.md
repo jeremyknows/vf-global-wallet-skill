@@ -2,10 +2,10 @@
 name: vf-global-wallet
 description: |
   Integrate VeeFriends Global Wallet into a Next.js app using Privy's cross-app SDK.
-  Use when: building a partner app that needs VeeFriends wallet authentication,
-  signing messages, signing typed data (EIP-712), or sending transactions through
-  VeeFriends' cross-app wallet system. Covers Privy v3 setup, PrivyProvider config,
-  cross-app login, wallet operations, CSP headers, and deployment to Vercel.
+  Use when: adding VeeFriends wallet to an existing PrivyAuth setup or when
+  setting up PrivyAuth (email + Google) with VeeFriends wallet included.
+  Covers Privy v3 setup, PrivyProvider config, cross-app login, wallet operations,
+  CSP headers, and deployment to Vercel.
   Reference implementation: https://github.com/jeremyknows/vf-global-wallet
 license: MIT
 compatibility: Next.js 14+ (App Router), React 18+, TypeScript, @privy-io/react-auth v3.13.x
@@ -16,9 +16,9 @@ metadata:
 
 # VeeFriends Global Wallet Integration
 
-Build apps that authenticate users via VeeFriends Global Wallet and interact with their cross-app Ethereum wallet.
+Build apps that add VeeFriends Global Wallet to your existing PrivyAuth login or set up PrivyAuth with VeeFriends included.
 
-**Architecture:** Your app is a "requester" that delegates authentication to VeeFriends (the "provider"). Users sign in via a popup on VeeFriends' domain. All wallet operations (sign, transact) also open consent popups on VeeFriends' domain. Your app never touches private keys.
+**Architecture:** Your app is a "requester" that delegates VeeFriends wallet auth to VeeFriends (the "provider"). Users sign in via a popup on VeeFriends' domain. All wallet operations (sign, transact) also open consent popups on VeeFriends' domain. Your app never touches private keys.
 
 **Reference implementation:** [vf-global-wallet](https://github.com/jeremyknows/vf-global-wallet) — a minimal working example deployed at https://vf-wallet-test.vercel.app
 
@@ -46,6 +46,8 @@ If your app already has authentication (Google OAuth, email/password, etc.), you
 | **Privy for all auth** | Move all authentication to Privy (it supports Google, email, and cross-app). Privy links accounts automatically when the same email appears across methods. | New apps or apps ready to migrate auth. Cleanest unified experience. |
 | **Wallet as primary login** | VeeFriends wallet is the only sign-in method. No email auth. | Apps built exclusively for VeeFriends holders. |
 
+**This skill’s default path assumes you already use Privy for auth** and you are adding VeeFriends wallet as a post-login connect flow.
+
 **If you already have auth, "wallet as add-on" is the simplest path.** Keep your existing login flow and add wallet connection as a feature. No auth migration needed.
 
 **If you use Privy for all auth,** Privy can link accounts when the same user signs in via Google on your app and also connects their VeeFriends wallet — but only because Privy sees both methods on *your* app. The email is never shared from VeeFriends' side.
@@ -54,15 +56,25 @@ If your app already has authentication (Google OAuth, email/password, etc.), you
 
 1. **Privy Dashboard account** — Create at https://dashboard.privy.io
 2. **Requester App ID** — Create a new app in Privy Dashboard (this is YOUR app)
-3. **VeeFriends Provider App ID** — Contact VeeFriends team or find it in Privy Dashboard > Ecosystem > Integrations
+3. **VeeFriends Provider App ID** — `cm5158iom02kdwmj4wj527lc4`
 4. **Next.js 14+ project** with App Router, React 18+, TypeScript
 
-### Privy Dashboard Setup
+### Privy Dashboard Setup (Required)
 
 In your Privy Dashboard app settings:
 - Enable "Cross-App Authentication" under Login Methods
-- Add VeeFriends as a cross-app provider using their Provider App ID
+- Add VeeFriends as a cross-app provider using Provider App ID `cm5158iom02kdwmj4wj527lc4`
+- Enable Email and Google login methods (recommended defaults)
 - No server-side API keys needed — both app IDs are public client-side identifiers
+  
+If the provider app ID ever stops working, re-check Privy Dashboard > Ecosystem > Integrations.
+
+**Default path (recommended):** Add VeeFriends wallet to an existing PrivyAuth setup.
+- Keep your current login methods and PrivyProvider.
+- Enable cross-app auth + add the VeeFriends provider in Privy Dashboard.
+- Add the VeeFriends connect flow post-login (profile/settings) and store the wallet address.
+
+**If you are setting up PrivyAuth for the first time:** Use Email + Google as your login methods, then add the VeeFriends wallet connect flow. VeeFriends wallet is not a replacement for email/Google.
 
 ## Branding: VeeFriends Wallet Icon
 
@@ -100,10 +112,10 @@ Create `.env.local`:
 
 ```env
 NEXT_PUBLIC_PRIVY_APP_ID=your_requester_privy_app_id
-NEXT_PUBLIC_VF_PROVIDER_APP_ID=your_veefriends_provider_app_id
+NEXT_PUBLIC_VF_PROVIDER_APP_ID=cm5158iom02kdwmj4wj527lc4
 ```
 
-> Get the VeeFriends Provider App ID from the VeeFriends team or Privy Dashboard > Ecosystem > Integrations.
+> The VeeFriends Provider App ID is `cm5158iom02kdwmj4wj527lc4`.
 
 Both are public client-side IDs (not secrets). The `NEXT_PUBLIC_` prefix is required — Next.js bakes these into the client bundle at build time. **You must redeploy after changing them.**
 
@@ -161,6 +173,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
 }
 ```
 
+**If you already have a `PrivyProvider`:** merge the `embeddedWallets` config above into your existing config and keep your current login methods. Do not remove existing methods.
+  
+If only specific routes use Privy, you can scope `Providers` to those route layouts instead of the root layout.
+
 ### Critical: Disable Embedded Wallet Creation
 
 `createOnLogin: 'off'` under both `ethereum` and `solana` is **mandatory**. Your app uses the VeeFriends cross-app wallet — you must NOT create separate embedded wallets.
@@ -199,7 +215,7 @@ import { useState } from 'react';
 import { useCrossAppAccounts, usePrivy } from '@privy-io/react-auth';
 import { VF_PROVIDER_APP_ID } from '@/lib/config';
 
-export function LoginButton() {
+export function ConnectWalletButton() {
   const { ready } = usePrivy();
   const { loginWithCrossAppAccount } = useCrossAppAccounts();
   const [isLoading, setIsLoading] = useState(false);
@@ -229,11 +245,14 @@ export function LoginButton() {
 
   return (
     <button onClick={handleLogin} disabled={!ready || isLoading}>
-      {!ready ? 'Initializing...' : isLoading ? 'Opening VeeFriends...' : 'Sign in with VeeFriends Wallet'}
+      {!ready ? 'Initializing...' : isLoading ? 'Opening VeeFriends...' : 'Connect VeeFriends Wallet'}
     </button>
   );
 }
 ```
+
+**Use this connect flow after your app’s normal login.** It is not intended to replace email/Google auth.
+Place the button on a post-login screen (profile, settings, or linked accounts).
 
 ### Key Points
 
@@ -298,6 +317,7 @@ const handleSignMessage = async () => {
 
 - No gas cost. Opens popup for user consent.
 - Returns hex signature string.
+- If you use signatures to verify ownership, verify the signature server-side before storing the wallet address.
 
 ### Sign Typed Data (EIP-712)
 
@@ -552,6 +572,9 @@ Use in layout: `<ErrorBoundary><Providers>{children}</Providers></ErrorBoundary>
 | Logout | `logout()` — local only, cross-app link persists |
 | Prevent SSG crash | `export const dynamic = 'force-dynamic'` |
 | Disable embedded wallets | `embeddedWallets: { ethereum: { createOnLogin: 'off' } }` |
+
+**Optional: Apple Sign In**  
+Add Apple if your product is iOS-heavy or already uses it. Otherwise it adds UI/config overhead. If you include Apple, enable it in the Privy Dashboard and keep VeeFriends as a separate connect flow.
 
 ## Supported Chains
 
