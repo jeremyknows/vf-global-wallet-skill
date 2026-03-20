@@ -2,16 +2,23 @@
 name: vf-global-wallet
 description: |
   Integrate VeeFriends Global Wallet into a Next.js app using Privy's cross-app SDK.
-  Use when: adding VeeFriends wallet to an existing PrivyAuth setup or when
-  setting up PrivyAuth (email + Google) with VeeFriends wallet included.
+  Use when: adding VeeFriends wallet to an existing PrivyAuth setup, or setting up
+  PrivyAuth (email + Google) with VeeFriends wallet included, or when a user says
+  "add VeeFriends wallet login", "integrate VeeFriends wallet", or "cross-app auth
+  with VeeFriends".
+  NOT FOR: React Native apps, non-Next.js frameworks, EVM-incompatible chains,
+  apps where users do not have existing VeeFriends accounts, or server-side-only
+  environments where browser APIs are unavailable.
   Covers Privy v3 setup, PrivyProvider config, cross-app login, wallet operations,
   CSP headers, and deployment to Vercel.
   Reference implementation: https://github.com/jeremyknows/vf-global-wallet
 license: MIT
-compatibility: Next.js 14+ (App Router), React 18+, TypeScript, @privy-io/react-auth v3.13.x
+compatibility: Next.js 14+ (App Router), React 18+, TypeScript, @privy-io/react-auth ~3.13.x
 metadata:
   author: VeeFriends
-  version: "1.0.0"
+  version: "1.1.0"
+  health_score: "9/14"
+  last_improved: "2026-03-20"
 ---
 
 # VeeFriends Global Wallet Integration
@@ -98,13 +105,21 @@ import Image from 'next/image';
 
 The SVG is 800x800 with a white circle background — it renders well on both light and dark backgrounds at any size.
 
+## Dependencies
+
+- `@privy-io/react-auth ~3.13.x` — Privy React SDK (patch updates safe; minor/major require testing)
+- Next.js 14+ with App Router
+- React 18+, TypeScript
+- Privy Dashboard account (https://dashboard.privy.io)
+- VeeFriends account for testing (users must have one; no testnet equivalent)
+
 ## Step 1: Install Dependencies
 
 ```bash
-npm install @privy-io/react-auth@3.13.1
+npm install @privy-io/react-auth@~3.13.1
 ```
 
-Pin the exact version (no `^` or `~`). Privy SDK has breaking changes between versions. Review changelog before updating.
+Use `~3.13.x` (tilde = patch updates only). Privy SDK has breaking changes between minor/major versions — review the changelog before upgrading beyond `3.13.x`. Patch updates (`3.13.1` → `3.13.2`) are safe to take automatically.
 
 ## Step 2: Environment Variables
 
@@ -211,7 +226,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 ```
 
-**Why `force-dynamic`?** Privy SDK reads app IDs at import time and makes API calls during initialization. During Next.js static site generation (SSG), this crashes silently — the build succeeds but the deployed site shows errors or a blank page. `force-dynamic` forces server-side rendering at request time, avoiding this entirely.
+**Why `force-dynamic`?** Privy's client-only hooks (`usePrivy`, `useCrossAppAccounts`, etc.) access browser APIs — `window`, `localStorage`, `window.matchMedia` — at initialization time. During Next.js static site generation (SSG), these APIs don't exist in the Node.js build environment. The crash is silent: the build succeeds, but the deployed site shows a blank page or a `ReferenceError: window is not defined` error at runtime. `force-dynamic` forces server-side rendering on every request, ensuring Privy hooks only run in the browser. If you see a blank page after deployment with no build errors, this export is missing.
 
 ## Step 5: Cross-App Login
 
@@ -276,8 +291,12 @@ import type { User } from '@privy-io/react-auth';
 const ETH_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 
 export function getWalletAddress(user: User | null): string | undefined {
+  // Filter by providerAppId to avoid returning the wrong wallet if the user
+  // has linked multiple cross-app accounts from different providers.
   const crossAppAccount = user?.linkedAccounts?.find(
-    (account) => account.type === 'cross_app'
+    (account) =>
+      account.type === 'cross_app' &&
+      account.providerAppId === process.env.NEXT_PUBLIC_VF_PROVIDER_APP_ID
   );
   const address =
     crossAppAccount?.type === 'cross_app'
@@ -356,7 +375,7 @@ const handleSignTypedData = async () => {
 };
 ```
 
-- Use native `BigInt` for numeric types (not strings or hex).
+- Use native `BigInt` for `uint256` and other integer types. If you use a plain JS `number`, `JSON.stringify` will silently truncate large values and Privy may reject the signature. You'll see a `TypeError: Do not know how to serialize a BigInt` if you try to log or JSON-encode the typed data — this is expected; don't stringify the data object directly.
 - `primaryType` needs `as const` for TypeScript.
 - No gas cost. Opens popup for user consent.
 
@@ -415,7 +434,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 }
 ```
 
-Use `router.replace('/')` (not `push`) so the back button doesn't return to an authenticated page after logout.
+Use `router.replace('/')` (not `push`) so the back button doesn't return to an authenticated page after logout. With `push`, the browser history contains the protected route — users can press back after logging out and land on a page that requires auth, causing a flash redirect loop. `replace` removes the protected route from history entirely.
 
 ### Sign Out
 
@@ -428,7 +447,7 @@ const handleSignOut = async () => {
 };
 ```
 
-**Important:** `logout()` only clears the local session. The cross-app link between your app and VeeFriends persists — it cannot be removed via the Privy API. Users signing back in will automatically reconnect.
+**Important:** `logout()` only clears the local Privy session on your app. The cross-app link between your app and VeeFriends persists on Privy's infrastructure — it cannot be removed by requester apps via the API. **User-facing impact:** if a user logs out and immediately clicks "Connect VeeFriends Wallet" again, they will re-authenticate silently without seeing the VeeFriends consent popup (the link already exists). This is by design in Privy's cross-app architecture, not a bug. To verify whether a user still has a cross-app link after logout, check `user?.linkedAccounts` — the `cross_app` entry will still be present until the user explicitly revokes it from the VeeFriends side. Inform users that "log out" disconnects them from your app, not from VeeFriends.
 
 ## Step 9: Security Headers
 
@@ -478,7 +497,12 @@ export default nextConfig;
 | `*.infura.io` / `*.alchemy.com` | Ethereum RPC providers Privy uses internally |
 | `*.walletconnect.com` | WalletConnect protocol (Privy dependency) |
 
-`unsafe-inline` and `unsafe-eval` are required by the Privy SDK and Next.js. For hardened production apps, consider nonce-based CSP.
+**Why `unsafe-inline` and `unsafe-eval`?**
+- `unsafe-inline` (script-src): Required by Next.js for its inline script bootstrapping. Also used by Privy's popup communication layer.
+- `unsafe-eval` (script-src): Required by the Privy SDK for dynamic function evaluation in its wallet iframe sandbox.
+- `unsafe-inline` (style-src): Required by Privy's modal and popup UI components which inject styles dynamically.
+
+These are real XSS risks. Mitigations: enforce strong input validation on all user-facing data, use `X-Frame-Options: DENY` (included above), and audit third-party scripts loaded on your domain. For hardened production apps, Privy supports nonce-based CSP — see the Privy security docs for implementation details.
 
 ## Account Funding (Gas Sponsorship)
 
@@ -606,3 +630,41 @@ Add Apple if your product is iOS-heavy or already uses it. Otherwise it adds UI/
 - Privy React SDK v3.13.1 (`@privy-io/react-auth`)
 - Tailwind CSS v4 + shadcn/ui (optional — any styling works)
 - Deployed on Vercel
+
+## Step 10: Verify Your Integration
+
+Run through this checklist after completing Steps 1–9:
+
+**Environment & Setup**
+- [ ] `npm run build` succeeds with no `window is not defined` or Privy errors
+- [ ] `NEXT_PUBLIC_PRIVY_APP_ID` and `NEXT_PUBLIC_VF_PROVIDER_APP_ID` load correctly (check browser console: `window.__ENV` or the config validation throw)
+- [ ] `vf-logo.svg` renders at the expected path in the browser
+
+**Auth Flow**
+- [ ] "Connect VeeFriends Wallet" button is disabled until `ready === true`
+- [ ] Clicking the button opens a popup on `*.privy.io` (not your domain)
+- [ ] User with no VeeFriends account sees the "create account" error message (not an uncaught exception)
+- [ ] User with a VeeFriends account can connect successfully
+
+**Wallet Operations**
+- [ ] `getWalletAddress(user)` returns a valid `0x...` address after login
+- [ ] `signMessage()` opens a consent popup and returns a hex signature
+- [ ] Clicking two wallet buttons simultaneously: second button is disabled (single-action lock works)
+- [ ] EIP-712 `signTypedData()` with a `uint256` field works without serialization errors
+
+**Auth Guard & Logout**
+- [ ] Unauthenticated users on protected routes are redirected to `/`
+- [ ] After logout + back button: browser does NOT return to the protected page
+- [ ] Logging out and clicking "Connect VeeFriends Wallet" immediately re-authenticates (cross-app link persists — this is correct behavior, not a bug)
+
+**Security Headers**
+- [ ] `curl -I https://your-domain.com` shows `X-Frame-Options: DENY` and `X-Content-Type-Options: nosniff`
+- [ ] CSP header is present in the response
+
+## Testing Without a VeeFriends Account
+
+You need a real VeeFriends account to test the full connect flow — there is no testnet or mock mode for the VeeFriends provider app. Options:
+
+1. **Use your own Privy app as both provider and requester** — create two apps in Privy Dashboard, configure one as the provider and one as the requester. This tests the cross-app mechanics without needing VeeFriends specifically.
+2. **Unit-test `getWalletAddress()`** — mock the `User` object with a fake `linkedAccounts` array to test extraction logic without a real login.
+3. **Test error handling** — call `loginWithCrossAppAccount()` with an invalid `appId` to confirm your error messages render correctly.
