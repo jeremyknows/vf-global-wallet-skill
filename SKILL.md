@@ -291,16 +291,22 @@ import type { User } from '@privy-io/react-auth';
 const ETH_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 
 export function getWalletAddress(user: User | null): string | undefined {
-  // Filter by providerAppId to avoid returning the wrong wallet if the user
+  // Filter by providerApp.id to avoid returning the wrong wallet if the user
   // has linked multiple cross-app accounts from different providers.
+  //
+  // ⚠️ CRITICAL: The field is `account.providerApp.id` (nested object),
+  // NOT `account.providerAppId` (flat). Using providerAppId silently returns
+  // undefined, causing isVFConnected() to always return false. Confirmed
+  // against @privy-io/react-auth@3.18.x — the CrossAppAccount type shape is:
+  //   { type: 'cross_app', providerApp: { id: string, name?: string, logoUrl?: string }, ... }
   const crossAppAccount = user?.linkedAccounts?.find(
     (account) =>
       account.type === 'cross_app' &&
-      account.providerAppId === process.env.NEXT_PUBLIC_VF_PROVIDER_APP_ID
+      (account as any).providerApp?.id === process.env.NEXT_PUBLIC_VF_PROVIDER_APP_ID
   );
   const address =
     crossAppAccount?.type === 'cross_app'
-      ? crossAppAccount.embeddedWallets?.[0]?.address
+      ? (crossAppAccount as any).embeddedWallets?.[0]?.address
       : undefined;
 
   return address && ETH_ADDRESS_RE.test(address) ? address : undefined;
@@ -547,6 +553,24 @@ useEffect(() => {
   }
 }, []);
 ```
+
+### 9. `providerApp.id` vs `providerAppId` — silent auth failure
+The `CrossAppAccount` type has **`providerApp.id`** (nested object), not a flat `providerAppId` field. Using `account.providerAppId` compiles without error but always returns `undefined` at runtime, causing `isVFConnected()` to always return `false`. Symptoms:
+
+- User completes cross-app sign-in successfully
+- Gets redirected back to the landing page instead of the authenticated view
+- No error shown — silent failure
+
+**Wrong:**
+```ts
+account.providerAppId === process.env.NEXT_PUBLIC_VF_PROVIDER_APP_ID
+```
+**Correct:**
+```ts
+(account as any).providerApp?.id === process.env.NEXT_PUBLIC_VF_PROVIDER_APP_ID
+```
+
+The `(account as any)` cast is needed because Privy's exported TS types may lag behind the runtime shape. Confirmed against `@privy-io/react-auth@3.18.x`.
 
 ### 8. "Invalid Privy app ID" or endless "Initializing..."
 Hidden whitespace in env vars (especially trailing newlines from CLI input) can break Privy initialization. This often appears as:
